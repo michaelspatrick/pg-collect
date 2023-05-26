@@ -9,10 +9,10 @@
 # Version 0.1 - May 18, 2023
 #
 # It is recommended to run the script as a privileged user (superuser,
-# rds_superuser etc), but it will run as any user.  You can safely ignore any
+# rds_superuser, etc), but it will run as any user.  You can safely ignore any
 # warnings.
 #
-# Percona toolkit is highly recommended to be installed and available.
+# Percona toolkit is highly encouraged to be installed and available.
 # The script will attempt to download only the necessary tools from the Percona
 # website.  If that too fails, it will continue gracefully, but some key metrics
 # will be missing.  This can also be skipped by the --skip-downloads flag.
@@ -28,29 +28,35 @@
 
 VERSION=0.1
 
+# ------------------------- Begin Configuation -------------------------
+
+# Setup directory paths
+TMPDIR=/tmp
+BASEDIR=${TMPDIR}/metrics
+
 # Postgres connectivity
 PG_USER="postgres"
 PG_PASSWORD="password"
 PG_DBNAME="postgres"
 PSQL_CONNECT_STR="psql -U${PG_USER} -d ${PG_DBNAME}"
 
+# Number of log entries to collect from messages or syslog
+NUM_LOG_LINES=1000
+
+# -------------------------- End Configuation --------------------------
+
+# Trap ctrl-c
+trap die SIGINT
+
 # Set postgres password in the environment
 export PGPASSWORD="${PG_PASSWORD}"
 
-# Setup directory paths
-TMPDIR=/tmp
-BASEDIR=${TMPDIR}/metrics
+# Declare some variables
 DATETIME=`date +"%F_%H-%M-%S"`
 HOSTNAME=`hostname`
 DIRNAME="${HOSTNAME}_${DATETIME}"
 CURRENTDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 PTDEST=${BASEDIR}/${DIRNAME}
-
-# Number of log entries to collect
-NUM_LOG_LINES=1000
-
-# Trap ctrl-c interrupts
-trap die SIGINT
 
 # Setup colors
 if [[ -t 2 ]] && [[ -z "${NO_COLOR-}" ]] && [[ "${TERM-}" != "dumb" ]]; then
@@ -97,6 +103,7 @@ cleanup() {
   fi
 }
 
+# Call this when script dies suddenly
 die() {
   echo
   cleanup
@@ -106,6 +113,7 @@ die() {
   exit "$code"
 }
 
+# Display script usage
 usage() {
   cat << EOF # remove the space between << and EOF
 Usage: $(basename "${BASH_SOURCE[0]}") [-h] [-v] [-V] [-f]
@@ -123,6 +131,7 @@ EOF
   exit
 }
 
+# Parse command line options and parameters
 parse_params() {
   # default values of variables set from params
   COLOR=true             # Whether or not to show colored output
@@ -152,6 +161,7 @@ parse_params() {
 
 parse_params "$@"
 
+# If user doesn't want color displayed, reset the color values to empty strings
 if [ "$COLOR" = false ]; then
   NOFORMAT='' RED='' GREEN='' ORANGE='' BLUE='' PURPLE='' CYAN='' YELLOW=''
 fi
@@ -165,9 +175,11 @@ fi
 
 heading "Notes"
 
+# Display script version
 echo -n "PostgreSQL Data Collection Version: "
 msg "${GREEN}${VERSION}${NOFORMAT}"
 
+# Display whether to take long collections of some metrics or slow ones
 echo -n "Metrics collection speed: "
 if [ "$FAST" = true ]; then
   msg "${YELLOW}fast (${CMD_TIME} sec)${NOFORMAT}"
@@ -175,7 +187,7 @@ else
   msg "${GREEN}slow (${CMD_TIME} sec)${NOFORMAT}"
 fi
 
-# Get the Percona Toolkit Version
+# Get the Percona Toolkit version via pt-summary
 if exists pt-summary; then
   PT_EXISTS=true
   PT_SUMMARY=`which pt-summary`
@@ -207,6 +219,7 @@ else
   fi
 fi
 
+# Check for pt-pg-summary
 if exists pt-pg-summary; then
   PT_PG_SUMMARY=`which pt-pg-summary`
 else
@@ -231,7 +244,7 @@ else
   fi
 fi
 
-# Get the Postgres Version
+# Get the Postgres version number
 if exists pg_config; then
   PG_VERSION_STR=`pg_config --version`
 fi
@@ -249,6 +262,7 @@ PG_PID=`pgrep -x postgres -n`
 PG_CONFIG=`$PSQL_CONNECT_STR -t -c 'SHOW config_file' | xargs`
 PG_HBA_CONFIG=`$PSQL_CONNECT_STR -t -c 'SHOW hba_file' | xargs`
 
+# Display the Percona Toolkit version number
 echo -n "Percona Toolkit Version: "
 if [ "$PT_EXISTS" = true ]; then
   msg "${GREEN}${PT_VERSION_NUM}${NOFORMAT}"
@@ -256,13 +270,15 @@ else
   msg "${YELLOW}not found${NOFORMAT}"
 fi
 
-echo -n "Attempt download of Percona toolkit (if needed): "
+# Attempt to download Percona Toolkit tools if needed
+echo -n "Attempt download of Percona Toolkit (if needed): "
 if [ "$SKIP_DOWNLOADS" = false ]; then
   msg "${GREEN}yes${NOFORMAT}"
 else
   msg "${YELLOW}no${NOFORMAT}"
 fi
 
+# Display the PostgreSQL version number
 echo -n "Postgres Version: "
 msg "${GREEN}${PG_VERSION_STR}${NOFORMAT}"
 
@@ -273,15 +289,19 @@ else
   msg "${YELLOW}unprivileged${NOFORMAT}"
 fi
 
+# Display latest Postgres server PID
 echo -n "Postgres Server PID (Latest): "
 msg "${GREEN}${PG_PID}${NOFORMAT}"
 
+# Display Postgres server configuration file
 echo -n "Postgres Server Configuration File: "
 msg "${CYAN}${PG_CONFIG}${NOFORMAT}"
 
+# Display Postgres client configuration file
 echo -n "Postgres Client Configuration File: "
 msg "${CYAN}${PG_HBA_CONFIG}${NOFORMAT}"
 
+# Display base working directory
 echo -n "Base working directory: "
 msg "${CYAN}${BASEDIR}${NOFORMAT}"
 
@@ -289,6 +309,7 @@ msg "${CYAN}${BASEDIR}${NOFORMAT}"
 echo -n "Temporary working directory: "
 msg "${CYAN}${PTDEST}${NOFORMAT}"
 
+# Display temporary directory
 echo -n "Creating temporary directory: "
 mkdir -p ${PTDEST}
 if [ $? -eq 0 ]; then
@@ -314,6 +335,7 @@ else
   fi
 fi
 
+# Collect sysctl
 echo -n "Collecting sysctl: "
 sysctl -a > ${PTDEST}/sysctl_a.txt 2> /dev/null
 msg "${GREEN}done${NOFORMAT}"
@@ -462,6 +484,7 @@ else
   msg "${YELLOW}skipped${NOFORMAT}"
 fi
 
+# smartctl
 echo -n "Collecting smartctl: "
 if exists smartctl; then
   if [ "$HAVE_SUDO" = true ] ; then
@@ -474,6 +497,7 @@ else
   msg "${YELLOW}skipped${NOFORMAT}"
 fi
 
+# multipath (if root)
 echo -n "Collecting multipath: "
 if exists multipath; then
   if [ "$HAVE_SUDO" = true ] ; then
@@ -559,6 +583,7 @@ else
   msg "${YELLOW}skipped${NOFORMAT}"
 fi
 
+# nfsiostat
 echo -n "Collecting nfsiostat (${CMD_TIME} sec): "
 if exists nfsiostat; then
   nfsiostat 1 ${CMD_TIME} > ${PTDEST}/nfsiostat.txt
@@ -570,6 +595,7 @@ fi
 echo
 heading "Networking"
 
+# netstat
 echo -n "Collecting netstat: "
 if exists netstat; then
   netstat -s > ${PTDEST}/netstat_s.txt
@@ -578,6 +604,7 @@ else
   msg "${YELLOW}skipped${NOFORMAT}"
 fi
 
+# sar
 echo -n "Collecting sar (${CMD_TIME} sec): "
 if exists sar; then
   sar -n DEV 1 ${CMD_TIME} > ${PTDEST}/sar_dev.txt
@@ -589,6 +616,8 @@ fi
 
 echo
 heading "PostgreSQL"
+
+# Copy Postgres server configuration file
 echo -n "Copying server configuration file: "
 if [ -r "${PG_CONFIG}" ]; then
   cp ${PG_CONFIG} ${PTDEST}
@@ -601,6 +630,7 @@ else
   msg "${YELLOW}skipped - insufficient read privileges${NOFORMAT}"
 fi
 
+# Copy Postgres client configuration file
 echo -n "Copying client configuration file: "
 if [ -r "${PG_HBA_CONFIG}" ]; then
   cp ${PG_HBA_CONFIG} ${PTDEST}
@@ -613,6 +643,7 @@ else
   msg "${YELLOW}skipped - insufficient read privileges${NOFORMAT}"
 fi
 
+# Get all Postgres PIDs
 echo -n "Collecting PIDs: "
 pgrep -x postgres > "${PTDEST}/postgres_PIDs.txt"
 if [ $? -eq 0 ]; then
@@ -621,6 +652,7 @@ else
   msg "${RED}failed${NOFORMAT}"
 fi
 
+# /proc/PID/limits
 echo -n "Copying limits: "
 if [ -r "/proc/${PG_PID}/limits" ]; then
   cp "/proc/${PG_PID}/limits"  "${PTDEST}/proc_${PG_PID}_limits.txt"
@@ -692,10 +724,12 @@ echo "Compressing files:"
 DEST_TGZ="$(dirname ${PTDEST})/${DIRNAME}.tar.gz"
 tar czvf "${DEST_TGZ}" ${DIRNAME}
 
+# Show compressed file location
 echo -n "File saved to: "
 msg "${CYAN}${DEST_TGZ}${NOFORMAT}"
 
 # Do Cleanup
 cleanup
 
+# Exit clean
 exit 0
