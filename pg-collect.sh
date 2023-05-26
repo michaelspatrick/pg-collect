@@ -613,7 +613,6 @@ else
   msg "${YELLOW}skipped${NOFORMAT}"
 fi
 
-
 echo
 heading "PostgreSQL"
 
