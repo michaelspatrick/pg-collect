@@ -290,7 +290,7 @@ else
 fi
 
 # Display latest Postgres server PID
-echo -n "Postgres Server PID (Latest): "
+echo -n "Postgres Server PID (latest): "
 msg "${GREEN}${PG_PID}${NOFORMAT}"
 
 # Display Postgres server configuration file
@@ -724,7 +724,7 @@ DEST_TGZ="$(dirname ${PTDEST})/${DIRNAME}.tar.gz"
 tar czvf "${DEST_TGZ}" ${DIRNAME}
 
 # Show compressed file location
-echo -n "File saved to: "
+echo -n "Archive saved to: "
 msg "${CYAN}${DEST_TGZ}${NOFORMAT}"
 
 # Do Cleanup
