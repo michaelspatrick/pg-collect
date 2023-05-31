@@ -178,5 +178,26 @@ Cleanup
 Deleting temporary files: done
 ```
 
+## Getting Started
+After downloading the script, you can edit the PostgreSQL configuration variables at the top of the script.  If you want to change the location of the temporary directory or the number of lines of system logs collected, you can do so in the Configuration section as noted below:
+```
+# ------------------------- Begin Configuation -------------------------
+
+# Setup directory paths
+TMPDIR=/tmp
+BASEDIR=${TMPDIR}/metrics
+
+# Postgres connectivity
+PG_USER="postgres"
+PG_PASSWORD="password"
+PG_DBNAME="postgres"
+PSQL_CONNECT_STR="psql -U${PG_USER} -d ${PG_DBNAME}"
+
+# Number of log entries to collect from messages or syslog
+NUM_LOG_LINES=1000
+
+# -------------------------- End Configuation --------------------------
+```
+
 ## Licensing
 The code is Open Source and can be used as you see fit.  There is no support given and you use the code at your own risk. 
