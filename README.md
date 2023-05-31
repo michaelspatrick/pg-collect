@@ -1,7 +1,7 @@
 # pg-collect
 Data gathering script for PostgreSQL which can be useful to diagnose issues.  The tool collects numerous Operating System metrics as well as PostgreSQL metrics which can be analyzed.  These metrics are written to a text file and then tar and gzipped into an archive file which is easy to send to an engineer or attach to a support ticket.
 
-## Help output
+## Help Output
 ```
 localhost:~/postgres$ ./pg-collect.sh --help
 Usage: pg-collect.sh [-h] [-v] [-V] [-f]
