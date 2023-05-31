@@ -24,5 +24,147 @@ Available options:
 * Collecting metrics to send to a DBA or engineer to review during an issue.
 * Collecting metrics to store as a baseline of server performance.  If and when a problem arises, these metrics could be compared against the current state.
 
+## Sample Output (Fast collection with no color)
+```
+mpatrick@localhost:~/postgres$ ./pg-collect.sh --fast  --no-color
+Notes
+PostgreSQL Data Collection Version: 0.1
+Metrics collection speed: fast (3 sec)
+Percona Toolkit Version: 3.5
+Attempt download of Percona Toolkit (if needed): yes
+Postgres Version: PostgreSQL 15.2 - Percona Distribution
+User permissions: unprivileged
+Postgres Server PID (Latest): 906
+Postgres Server Configuration File: /etc/postgresql/15/main/postgresql.conf
+Postgres Client Configuration File: /etc/postgresql/15/main/pg_hba.conf
+Base working directory: /tmp/metrics
+Temporary working directory: /tmp/metrics/localhost_2023-05-31_13-25-44
+Creating temporary directory: done
+
+Operating System
+Collecting pt-summary: done
+Collecting sysctl: done
+Collecting ps: done
+Collecting top: done
+Collecting uname: done
+Collecting dmesg: skipped (insufficient user privileges)
+
+Logging
+Collecting /var/log/syslog (up to 1000 lines): done
+Collecting journalctl: done
+
+Resource Limits
+Collecting ulimit: done
+
+Swapping
+Collecting swappiness: done
+
+NUMA
+Collecting numactl: done
+
+CPU
+Collecting cpuinfo: done
+Collecting mpstat (3 sec): done
+
+Memory
+Collecting meminfo: done
+Collecting free/used memory: done
+Collecting vmstat (3 sec): done
+
+Storage
+Collecting df: done
+Collecting lsblk: done
+Collecting lsblk (all): done
+Collecting smartctl: skipped (insufficient user privileges)
+Collecting multipath: skipped (insufficient user privileges)
+Collecting lvdisplay: skipped (insufficient user privileges)
+Collecting pvdisplay: skipped (insufficient user privileges)
+Collecting pvs: skipped (insufficient user privileges)
+Collecting vgdisplay: skipped (insufficient user privileges)
+Collecting nfsstat: done
+
+I/O
+Collecting iostat (3 sec): done
+Collecting nfsiostat (3 sec): done
+
+Networking
+Collecting netstat: done
+Collecting sar (3 sec): done
+
+PostgreSQL
+Copying server configuration file: done
+Copying client configuration file: skipped - insufficient read privileges
+Collecting PIDs: done
+Copying limits: done
+Collecting pt-pg-summary:
+INFO[0000] Connecting to the database server using: user=postgres password=****** sslmode=disable dbname=postgres
+INFO[0000] Connection OK
+INFO[0000] Detected PostgreSQL version: 15.0.2
+INFO[0000] Getting global information
+INFO[0000] Collecting global counters (1st pass)
+INFO[0000] Collecting Cluster information
+INFO[0000] Waiting 10 seconds to read  counters
+INFO[0000] Collecting Connected Clients information
+INFO[0000] Collecting Database Wait Events information
+INFO[0000] Collecting Global Wait Events information
+INFO[0000] Collecting Port and Data Dir information
+INFO[0000] Collecting Tablespaces information
+INFO[0000] Collecting Instance Settings information
+INFO[0000] Collecting Slave Hosts (PostgreSQL 10+)
+INFO[0000] Waiting for counters information
+INFO[0010] Collecting global counters (2nd pass)
+INFO[0010] Collecting processes command line information
+INFO[0010] Finished collecting global information
+INFO[0010] Collecting per database information
+INFO[0010] Connecting to the "postgres" database
+INFO[0010] Collecting Table Access information
+INFO[0010] Collecting Table Cache Hit Ratio information
+INFO[0010] Collecting Index Cache Hit Ratio information
+INFO[0010] Connecting to the "pq" database
+INFO[0010] Collecting Table Access information
+INFO[0010] Collecting Table Cache Hit Ratio information
+INFO[0010] Collecting Index Cache Hit Ratio information
+done
+Downloading 'gather.sql': done
+Executing 'gather.sql' (20+ sec): done
+
+Preparing Data Archive
+Compressing files:
+localhost_2023-05-31_13-25-44/
+localhost_2023-05-31_13-25-44/postgres_PIDs.txt
+localhost_2023-05-31_13-25-44/uname_a.txt
+localhost_2023-05-31_13-25-44/netstat_s.txt
+localhost_2023-05-31_13-25-44/iostat.txt
+localhost_2023-05-31_13-25-44/mpstat.txt
+localhost_2023-05-31_13-25-44/proc_906_limits.txt
+localhost_2023-05-31_13-25-44/ps_auxf.txt
+localhost_2023-05-31_13-25-44/numactl-hardware.txt
+localhost_2023-05-31_13-25-44/cpuinfo.txt
+localhost_2023-05-31_13-25-44/syslog
+localhost_2023-05-31_13-25-44/gather.sql
+localhost_2023-05-31_13-25-44/pt-summary.txt
+localhost_2023-05-31_13-25-44/top.txt
+localhost_2023-05-31_13-25-44/postgresql.conf
+localhost_2023-05-31_13-25-44/sysctl_a.txt
+localhost_2023-05-31_13-25-44/sar_dev.txt
+localhost_2023-05-31_13-25-44/free_m.txt
+localhost_2023-05-31_13-25-44/nfsstat_m.txt
+localhost_2023-05-31_13-25-44/vmstat.txt
+localhost_2023-05-31_13-25-44/lsblk.txt
+localhost_2023-05-31_13-25-44/df_k.txt
+localhost_2023-05-31_13-25-44/swappiness.txt
+localhost_2023-05-31_13-25-44/pt-pg-summary.txt
+localhost_2023-05-31_13-25-44/nfsiostat.txt
+localhost_2023-05-31_13-25-44/lsblk-all.txt
+localhost_2023-05-31_13-25-44/psql_gather.txt
+localhost_2023-05-31_13-25-44/ulimit_a.txt
+localhost_2023-05-31_13-25-44/journalctl.txt
+localhost_2023-05-31_13-25-44/meminfo.txt
+File saved to: /tmp/metrics/localhost_2023-05-31_13-25-44.tar.gz
+
+Cleanup
+Deleting temporary files: done
+```
+
 ## Licensing
 The code is Open Source and can be used as you see fit.  There is no support given and you use the code at your own risk. 
