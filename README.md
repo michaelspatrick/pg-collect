@@ -23,3 +23,6 @@ Available options:
 * Collecting metrics to send to a support team to help diagnose an issue.
 * Collecting metrics to send to a DBA or engineer to review during an issue.
 * Collecting metrics to store as a baseline of server performance.  If and when a problem arises, these metrics could be compared against the current state.
+
+## Licensing
+The code is Open Source and can be used as you see fit.  There is no support given and you use the code at your own risk. 
