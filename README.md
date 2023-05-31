@@ -1,5 +1,5 @@
 # pg-collect
-Data gathering script for PostgreSQL which can be useful to diagnose issues.  The tool collects numerous Operating System metrics as well as PostgreSQL metrics which can be analyzed.  These metrics are written to a text file and then tar and gzipped into an archive file which is easy to send to an engineer or attach to a support ticket.
+Data gathering script for PostgreSQL, written in Bash, which can be useful to diagnose issues.  The tool collects numerous Operating System metrics as well as PostgreSQL metrics which can be analyzed.  These metrics are written to a text file and then tar and gzipped into an archive file which is easy to send to an engineer or attach to a support ticket.
 
 It is best to run the script with elevated privileges in order to collect the most OS system metrics as some require root privileges.  If you cannot do this, the script will run just fine as an unprivileged user and will skip commands which require root.  
 
