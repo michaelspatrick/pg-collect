@@ -1,7 +1,7 @@
 # pg-collect
-Data gathering script for PostgreSQL which can be useful to diagnose issues.  The tool collects numerous Operating System metrics as well as PostgreSQL metrics which can be analyzed.
+Data gathering script for PostgreSQL which can be useful to diagnose issues.  The tool collects numerous Operating System metrics as well as PostgreSQL metrics which can be analyzed.  These metrics are written to a text file and then tar and gzipped into an archive file which is easy to send to an engineer or attach to a support ticket.
 
-## help output
+## Help output
 ```
 localhost:~/postgres$ ./pg-collect.sh --help
 Usage: pg-collect.sh [-h] [-v] [-V] [-f]
@@ -18,3 +18,8 @@ Available options:
 --skip-os         Do not attempt to collect OS metrics
 --skip-postgres   Do not attempt to collect PostgreSQL metrics
 ```
+
+## Use Cases
+* Collecting metrics to send to a support team to help diagnose an issue.
+* Collecting metrics to send to a DBA or engineer to review during an issue.
+* Collecting metrics to store as a baseline of server performance.  If and when a problem arises, these metrics could be compared against the current state.
