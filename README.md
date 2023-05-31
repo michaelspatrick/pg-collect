@@ -3,6 +3,8 @@ Data gathering script for PostgreSQL which can be useful to diagnose issues.  Th
 
 It is best to run the script with elevated privileges in order to collect the most OS system metrics as some require root privileges.  If you cannot do this, the script will run just fine as an unprivileged user and will skip commands which require root.  
 
+The output is sorted into sections with color output (unless you pass the "--no-color" option) for easy identification of what is being collected.  If a command is skipped, it will be identified along with either a "done" on success, or a warning message if it is unable to be successfully processed.  Time estimates for longer running commands are also shown.
+
 Some of the commands require collecting 60 or 120 seconds of output by default.  If you are in a hurry, you can add the "--fast" option which will shorten the collection time to only 3 seconds.  Of course, this comes at the cost of not collecting as much data.
 
 Also, if you don't need Operating System metrics, you can skip them with the "--skip-os" option.  Likewise, PostgreSQL metrics can be skipped with the "--skip-postgres" option.
