@@ -7,7 +7,7 @@ Some of the commands require collecting 60 or 120 seconds of output by default. 
 
 Also, if you don't need Operating System metrics, you can skip them with the "--skip-os" option.  Likewise, PostgreSQL metrics can be skipped with the "--skip-postgres" option.
 
-This tool utilizes the [Percona Toolkit](https://www.percona.com/software/database-tools/percona-toolkit) for [pt-summary](https://docs.percona.com/percona-toolkit/pt-summary.html) and [pt-pg-summary](https://docs.percona.com/percona-toolkit/pt-pg-summary.html).  You can read more about other tools in the toolkit at [Percona Toolkit Documentation](https://docs.percona.com/percona-toolkit/index.html).  In addition, the gather.sql and gather_old.sql files are also downloaded and utilized unless you "--skip-downloads".  These scripts can be found in [Percona's Support Snippets Github](https://github.com/percona/support-snippets/tree/master/postgresql/pg_gather) and were written by Jobin Augustine.
+This tool utilizes the [Percona Toolkit](https://www.percona.com/software/database-tools/percona-toolkit) for [pt-summary](https://docs.percona.com/percona-toolkit/pt-summary.html) and [pt-pg-summary](https://docs.percona.com/percona-toolkit/pt-pg-summary.html).  You can read more about other tools in the toolkit at [Percona Toolkit Documentation](https://docs.percona.com/percona-toolkit/index.html).  In addition, the gather.sql and gather_old.sql files are also downloaded and utilized unless you "--skip-downloads".  These SQL files can be found in [pgGather](https://github.com/percona/support-snippets/tree/master/postgresql/pg_gather) and were written by Jobin Augustine of [Percona](https://percona.com).
 
 ## Help Output
 ```
