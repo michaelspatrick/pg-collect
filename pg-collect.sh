@@ -20,6 +20,9 @@
 # This script also gathers either /var/log/syslog or /var/log/messages.
 # It will collect the last 1,000 lines from the log by default.
 #
+# The pt-stalk, pt-summary, and pgGather utilities will be run multi-threaded
+# to collect the best metrics.
+#
 # Modify the Postgres connectivity section below and then you should be able
 # to run the script.
 #
@@ -113,36 +116,37 @@ die() {
   exit "$code"
 }
 
+declare -a pids
+declare -a processes
+waitPids() {
+  while [ ${#pids[@]} -ne 0 ]; do
+    local range=$(eval echo {0..$((${#pids[@]}-1))})
+    local i
+    for i in $range; do
+      if ! kill -0 ${pids[$i]} 2> /dev/null; then
+        TIMESTAMP=`date +"%Y_%m_%d_%H_%M_%S"`
+        echo "${TIMESTAMP} Process, ${processes[$i]}, completed."
+        unset processes[$i]
+        unset pids[$i]
+      fi
+    done
+    pids=("${pids[@]}") # Expunge nulls created by unset.
+    processes=("${processes[@]}") # Expunge nulls created by unset.
+    sleep 1
+  done
+  echo "Done!"
+}
+
+addPid() {
+  local desc=$1
+  local pid=$2
+  echo "Starting ${desc} process with PID: ${pid}"
+  pids=(${pids[@]} $pid)
+  processes=(${processes[@]} $desc)
+}
+
 os_metrics() {
   heading "Operating System"
-
-  # Collect summary info using Percona Toolkit (if available)
-  echo -n "Collecting pt-summary: "
-  if ! exists $PT_SUMMARY; then
-    msg "${ORANGE}warning - Percona Toolkit not found${NOFORMAT}"
-  else
-    $PT_SUMMARY > ${PTDEST}/pt-summary.txt
-    if [ $? -eq 0 ]; then
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${RED}failed${NOFORMAT}"
-    fi
-  fi
-
-  # Collect sysctl
-  echo -n "Collecting sysctl: "
-  sysctl -a > ${PTDEST}/sysctl_a.txt 2> /dev/null
-  msg "${GREEN}done${NOFORMAT}"
-
-  # Collect ps
-  echo -n "Collecting ps: "
-  ps auxf > ${PTDEST}/ps_auxf.txt
-  msg "${GREEN}done${NOFORMAT}"
-
-  # Collect top
-  echo -n "Collecting top: "
-  top -bn 1 > ${PTDEST}/top.txt
-  msg "${GREEN}done${NOFORMAT}"
 
   # Collect OS information
   echo -n "Collecting uname: "
@@ -158,9 +162,6 @@ os_metrics() {
   else
     msg "${YELLOW}skipped (insufficient user privileges)${NOFORMAT}"
   fi
-
-  echo
-  heading "Logging"
 
   # Copy messages (if exists)
   if [ -e /var/log/messages ]; then
@@ -181,24 +182,82 @@ os_metrics() {
   journalctl -e > ${PTDEST}/journalctl.txt
   msg "${GREEN}done${NOFORMAT}"
 
-  echo
-  heading "Resource Limits"
+  # Get the Percona Toolkit version via pt-summary
+  if exists pt-summary; then
+    PT_EXISTS=true
+    PT_SUMMARY=`which pt-summary`
+    PT_VERSION_NUM=`${PT_SUMMARY} --version | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
+  else
+    if [ -f "${TMPDIR}/pt-summary" ]; then
+      PT_EXISTS=true
+      PT_SUMMARY=${TMPDIR}/pt-summary
+      chmod +x ${PT_SUMMARY}
+      PT_VERSION_NUM=`${PT_SUMMARY} --version | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
+    else
+      msg "${RED}Warning: Percona Toolkit tool, pt-summary, not found.${NOFORMAT}"
+      echo -n "Attempting to download it: "
+      if [ "${SKIP_DOWNLOADS}" = false ]; then
+        wget -cq -T 5 -P ${TMPDIR} percona.com/get/pt-summary
+        if [ $? -eq 0 ]; then
+          PT_EXISTS=true
+          PT_SUMMARY="${TMPDIR}/pt-summary"
+          chmod +x ${PT_SUMMARY}
+          PT_VERSION_NUM=`${PT_SUMMARY} --version | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
+          msg "${GREEN}done${NOFORMAT}"
+        else
+          PT_EXISTS=false
+          PT_VERSION_NUM=""
+          msg "${RED}failed${NOFORMAT}"
+        fi
+      else
+        msg "${YELLOW}skipped (per user request)${NOFORMAT}"
+      fi
+    fi
+  fi
+
+  # Display the Percona Toolkit version number
+  echo -n "Percona Toolkit Version: "
+  if [ "$PT_EXISTS" = true ]; then
+    msg "${GREEN}${PT_VERSION_NUM}${NOFORMAT}"
+  else
+    msg "${YELLOW}not found${NOFORMAT}"
+  fi
+
+  if [ "$PT_EXISTS" = true ]; then
+    # Collect summary info using Percona Toolkit (if available)
+    if ! exists $PT_SUMMARY; then
+      msg "${ORANGE}warning - Percona Toolkit not found${NOFORMAT}"
+    else
+      ($PT_SUMMARY > ${PTDEST}/pt-summary.txt) &
+      addPid "pt-summary" $!
+    fi
+    (pt-stalk --system-only --no-stalk --iterations=1 --sleep=30 --dest ${PTDEST}) &
+    addPid "pt-stalk" $!
+  else
+    msg "${RED}Warning: Please install the Percona Toolkit.${NOFORMAT}"
+  fi
+}
+
+legacy_os_metrics() {
+  # Collect ps
+  echo -n "Collecting ps: "
+  ps auxf > ${PTDEST}/ps_auxf.txt
+  msg "${GREEN}done${NOFORMAT}"
+
+  # Collect top
+  echo -n "Collecting top: "
+  top -bn 1 > ${PTDEST}/top.txt
+  msg "${GREEN}done${NOFORMAT}"
 
   # Ulimit
   echo -n "Collecting ulimit: "
   ulimit -a > ${PTDEST}/ulimit_a.txt
   msg "${GREEN}done${NOFORMAT}"
 
-  echo
-  heading "Swapping"
-
   # Swappiness
   echo -n "Collecting swappiness: "
   cat /proc/sys/vm/swappiness > ${PTDEST}/swappiness.txt
   msg "${GREEN}done${NOFORMAT}"
-
-  echo
-  heading "NUMA"
 
   # Numactl
   echo -n "Collecting numactl: "
@@ -209,25 +268,19 @@ os_metrics() {
     msg "${YELLOW}skipped${NOFORMAT}"
   fi
 
-  echo
-  heading "CPU"
-
   # cpuinfo
   echo -n "Collecting cpuinfo: "
   cat /proc/cpuinfo > ${PTDEST}/cpuinfo.txt
   msg "${GREEN}done${NOFORMAT}"
 
   # mpstat
-  echo -n "Collecting mpstat (${CMD_TIME} sec): "
+  echo -n "Collecting mpstat (60 sec): "
   if exists mpstat; then
-    mpstat -A 1 ${CMD_TIME} > ${PTDEST}/mpstat.txt
+    mpstat -A 1 60 > ${PTDEST}/mpstat.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
   fi
-
-  echo
-  heading "Memory"
 
   # meminfo
   echo -n "Collecting meminfo: "
@@ -240,16 +293,13 @@ os_metrics() {
   msg "${GREEN}done${NOFORMAT}"
 
   # vmstat
-  echo -n "Collecting vmstat (${CMD_TIME} sec): "
+  echo -n "Collecting vmstat (60 sec): "
   if exists vmstat; then
-    vmstat 1 ${CMD_TIME} > ${PTDEST}/vmstat.txt
+    vmstat 1 60 > ${PTDEST}/vmstat.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
   fi
-
-  echo
-  heading "Storage"
 
   # Disk info
   echo -n "Collecting df: "
@@ -365,29 +415,23 @@ os_metrics() {
     msg "${YELLOW}skipped${NOFORMAT}"
   fi
 
-  echo
-  heading "I/O"
-
   # iostat
-  echo -n "Collecting iostat (${CMD_TIME} sec): "
+  echo -n "Collecting iostat (60 sec): "
   if exists iostat; then
-    iostat -dmx 1 ${CMD_TIME} > ${PTDEST}/iostat.txt
+    iostat -dmx 1 60 > ${PTDEST}/iostat.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
   fi
 
   # nfsiostat
-  echo -n "Collecting nfsiostat (${CMD_TIME} sec): "
+  echo -n "Collecting nfsiostat (60 sec): "
   if exists nfsiostat; then
-    nfsiostat 1 ${CMD_TIME} > ${PTDEST}/nfsiostat.txt
+    nfsiostat 1 60 > ${PTDEST}/nfsiostat.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
   fi
-
-  echo
-  heading "Networking"
 
   # netstat
   echo -n "Collecting netstat: "
@@ -399,9 +443,9 @@ os_metrics() {
   fi
 
   # sar
-  echo -n "Collecting sar (${CMD_TIME} sec): "
+  echo -n "Collecting sar (60 sec): "
   if exists sar; then
-    sar -n DEV 1 ${CMD_TIME} > ${PTDEST}/sar_dev.txt
+    sar -n DEV 1 60 > ${PTDEST}/sar_dev.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
@@ -410,6 +454,25 @@ os_metrics() {
 
 postgres_metrics() {
   heading "PostgreSQL"
+
+  # Get the Postgres version number
+  if exists pg_config; then
+    PG_VERSION_STR=`pg_config --version`
+  fi
+  if exists psql; then
+    PSQL_EXISTS=true
+    PG_VERSION_NUM=`psql -V | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
+  else
+    PSQL_EXISTS=false
+  fi
+
+  # Get the location of the PG config file
+  PG_CONFIG=`$PSQL_CONNECT_STR -t -c 'SHOW config_file' | xargs`
+  PG_HBA_CONFIG=`$PSQL_CONNECT_STR -t -c 'SHOW hba_file' | xargs`
+
+  # Display the PostgreSQL version number
+  echo -n "Postgres Version: "
+  msg "${GREEN}${PG_VERSION_STR}${NOFORMAT}"
 
   # Copy Postgres server configuration file
   echo -n "Copying server configuration file: "
@@ -446,32 +509,6 @@ postgres_metrics() {
     msg "${RED}failed${NOFORMAT}"
   fi
 
-  # /proc/PID/limits
-  echo -n "Copying limits: "
-  if [ -r "/proc/${PG_PID}/limits" ]; then
-    cp "/proc/${PG_PID}/limits"  "${PTDEST}/proc_${PG_PID}_limits.txt"
-    if [ $? -eq 0 ]; then
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${RED}failed${NOFORMAT}"
-    fi
-  else
-    msg "${RED}insufficient read privileges${NOFORMAT}"
-  fi
-
-  # Collect Postgres summary info using Percona Toolkit (if available)
-  echo "Collecting pt-pg-summary: "
-  if ! exists ${PT_PG_SUMMARY}; then
-    msg "${RED}error - Percona Toolkit not found${NOFORMAT}"
-  else
-    ${PT_PG_SUMMARY} -U ${PG_USER} --password=${PG_PASSWORD} > ${PTDEST}/pt-pg-summary.txt
-    if [ $? -eq 0 ]; then
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${RED}failed${NOFORMAT}"
-    fi
-  fi
-
   # Get the Postgres gather SQL script and run it
   if awk "BEGIN {exit !($PG_VERSION_NUM >= 10.0)}"; then
     # For versions greater than 10.0, download this SQL script
@@ -480,32 +517,48 @@ postgres_metrics() {
     # For earlier versions, download this SQL script
     SQLFILE="gather_old.sql"
   fi
-  echo -n "Downloading '${SQLFILE}': "
-  if [ "${SKIP_DOWNLOADS}" = false ]; then
-    if [ "$PSQL_EXISTS" = true ]; then
-      curl -sL https://raw.githubusercontent.com/percona/support-snippets/master/postgresql/pg_gather/${SQLFILE} --output ${PTDEST}/${SQLFILE}
-      if [ $? -eq 0 ]; then
-        msg "${GREEN}done${NOFORMAT}"
 
-        echo -n "Executing '${SQLFILE}' (20+ sec): "
-        if [ -f "$PTDEST/$SQLFILE" ]; then
-          ${PSQL_CONNECT_STR} -X -f ${PTDEST}/${SQLFILE} > ${PTDEST}/psql_gather.txt
-          if [ $? -eq 0 ]; then
-            msg "${GREEN}done${NOFORMAT}"
-          else
-            msg "${RED}failed${NOFORMAT}"
-          fi
+  # Check for SQL file in the current dir.  Use instead of downloading if found.
+  echo -n "Checking for '${SQLFILE}': "
+  if [ -f "${TMPDIR}/${SQLFILE}" ]; then
+    msg "${GREEN}found${NOFORMAT}"
+    cp ${TMPDIR}/${SQLFILE} ${PTDEST}
+    EXECUTE_SQLFILE=true
+  else
+    msg "${YELLOW}not found${NOFORMAT}"
+    EXECUTE_SQLFILE=false
+
+    echo -n "Downloading '${SQLFILE}': "
+    if [ "${SKIP_DOWNLOADS}" = false ]; then
+      if [ "$PSQL_EXISTS" = true ]; then
+        curl -sL https://raw.githubusercontent.com/percona/support-snippets/master/postgresql/pg_gather/${SQLFILE} --output ${TMPDIR}/${SQLFILE}
+        if [ $? -eq 0 ]; then
+          msg "${GREEN}done${NOFORMAT}"
+          EXECUTE_SQLFILE=true
         else
-          msg "${RED}failed${NOFORMAT}"
+          msg "${RED}failed (file does not exist)${NOFORMAT}"
         fi
       else
-        msg "${RED}failed (file does not exist)${NOFORMAT}"
+        msg "${RED}failed (psql does not exist)${NOFORMAT}"
       fi
     else
-      msg "${RED}failed (psql does not exist)${NOFORMAT}"
+      msg "${YELLOW}skipped (per user request)${NOFORMAT}"
     fi
-  else
-    msg "${YELLOW}skipped (per user request)${NOFORMAT}"
+  fi
+
+  if [ "${EXECUTE_SQLFILE}" = true ]; then
+    #echo -n "Executing '${SQLFILE}' (20+ sec): "
+    if [ -f "$TMPDIR/$SQLFILE" ]; then
+      (${PSQL_CONNECT_STR} -X -f ${TMPDIR}/${SQLFILE} > ${PTDEST}/pgGather.txt) &
+      addPid "pgGather" $!
+      #if [ $? -eq 0 ]; then
+      #  msg "${GREEN}done${NOFORMAT}"
+      #else
+      #  msg "${RED}failed${NOFORMAT}"
+      #fi
+    else
+      msg "${RED}failed${NOFORMAT}"
+    fi
   fi
 }
 
@@ -520,7 +573,6 @@ Available options:
 -h, --help        Print this help and exit
 -v, --verbose     Print script debug info
 -V, --version     Print script version info
--f, --fast        Shorten the collection time of OS commands which take 60+ seconds to 3 seconds
 --no-color        Do not display colors
 --skip-downloads  Do not attempt to download any Percona tools
 --skip-os         Do not attempt to collect OS metrics
@@ -533,9 +585,6 @@ EOF
 parse_params() {
   # default values of variables set from params
   COLOR=true             # Whether or not to show colored output
-  FAST=false             # Whether or not to run fast or slow (with more detail)
-  CMD_TIME=60            # Longer running cmd execution time
-  CMD_SHORT_TIME=3       # Shorter running cmd execution time
   SKIP_DOWNLOADS=false   # Whether to skip attempts to download Percona toolkit and scripts
   SKIP_OS=false          # Whether to skip collecting OS metrics
   SKIP_POSTGRES=false    # Whether to skip collecting PostgreSQL metrics
@@ -549,7 +598,6 @@ parse_params() {
     --skip-downloads) SKIP_DOWNLOADS=true ;;
     --skip-os) SKIP_OS=true ;;
     --skip-postgres) SKIP_POSTGRES=true ;;
-    -f | --fast) FAST=true; CMD_TIME=${CMD_SHORT_TIME} ;;
     -?*) die "Unknown option: $1" ;;
     *) break; die ;;
     esac
@@ -581,109 +629,7 @@ heading "Notes"
 echo -n "PostgreSQL Data Collection Version: "
 msg "${GREEN}${VERSION}${NOFORMAT}"
 
-# Display whether to take long collections of some metrics or slow ones
-echo -n "Metrics collection speed: "
-if [ "$FAST" = true ]; then
-  msg "${YELLOW}fast (${CMD_TIME} sec)${NOFORMAT}"
-else
-  msg "${GREEN}slow (${CMD_TIME} sec)${NOFORMAT}"
-fi
-
-# Get the Percona Toolkit version via pt-summary
-if exists pt-summary; then
-  PT_EXISTS=true
-  PT_SUMMARY=`which pt-summary`
-  PT_VERSION_NUM=`${PT_SUMMARY} --version | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
-else
-  if [ -f "${TMPDIR}/pt-summary" ]; then
-    PT_EXISTS=true
-    PT_SUMMARY=${TMPDIR}/pt-summary
-    chmod +x ${PT_SUMMARY}
-    PT_VERSION_NUM=`${PT_SUMMARY} --version | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
-  else
-    echo -n "Warning: Percona Toolkit tool, pg-summary, not found.  Attempting download: "
-    if [ "${SKIP_DOWNLOADS}" = false ]; then
-      wget -cq -T 5 -P ${TMPDIR} percona.com/get/pt-summary
-      if [ $? -eq 0 ]; then
-        PT_EXISTS=true
-        PT_SUMMARY="${TMPDIR}/pt-summary"
-        chmod +x ${PT_SUMMARY}
-        PT_VERSION_NUM=`${PT_SUMMARY} --version | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
-        msg "${GREEN}done${NOFORMAT}"
-      else
-        PT_EXISTS=false
-        PT_VERSION_NUM=""
-        msg "${RED}failed${NOFORMAT}"
-      fi
-    else
-      msg "${YELLOW}skipped (per user request)${NOFORMAT}"
-    fi
-  fi
-fi
-
-# Check for pt-pg-summary
-if exists pt-pg-summary; then
-  PT_PG_SUMMARY=`which pt-pg-summary`
-else
-  if [ -f "${TMPDIR}/pt-pg-summary" ]; then
-    PT_EXISTS=true
-    PT_PG_SUMMARY="${TMPDIR}/pt-pg-summary"
-    chmod +x ${PT_PG_SUMMARY}
-  else
-    echo -n "Warning: Percona Toolkit tool, pg-pg-summary, not found.  Attempting download: "
-    if [ "${SKIP_DOWNLOADS}" = false ]; then
-      wget -cq -T 5 -P ${TMPDIR} percona.com/get/pt-pg-summary
-      if [ $? -eq 0 ]; then
-        PT_PG_SUMMARY=${TMPDIR}/pt-pg-summary
-        chmod +x ${PT_PG_SUMMARY}
-        msg "${GREEN}done${NOFORMAT}"
-      else
-        msg "${RED}failed${NOFORMAT}"
-      fi
-    else
-      msg "${YELLOW}skipped (per user request)${NOFORMAT}"
-    fi
-  fi
-fi
-
-# Get the Postgres version number
-if exists pg_config; then
-  PG_VERSION_STR=`pg_config --version`
-fi
-if exists psql; then
-  PSQL_EXISTS=true
-  PG_VERSION_NUM=`psql -V | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
-else
-  PSQL_EXISTS=false
-fi
-
-# Get the newest Postgres PID
-PG_PID=`pgrep -x postgres -n`
-
-# Get the location of the PG config file
-PG_CONFIG=`$PSQL_CONNECT_STR -t -c 'SHOW config_file' | xargs`
-PG_HBA_CONFIG=`$PSQL_CONNECT_STR -t -c 'SHOW hba_file' | xargs`
-
-# Display the Percona Toolkit version number
-echo -n "Percona Toolkit Version: "
-if [ "$PT_EXISTS" = true ]; then
-  msg "${GREEN}${PT_VERSION_NUM}${NOFORMAT}"
-else
-  msg "${YELLOW}not found${NOFORMAT}"
-fi
-
-# Attempt to download Percona Toolkit tools if needed
-echo -n "Attempt download of Percona Toolkit (if needed): "
-if [ "$SKIP_DOWNLOADS" = false ]; then
-  msg "${GREEN}yes${NOFORMAT}"
-else
-  msg "${YELLOW}no${NOFORMAT}"
-fi
-
-# Display the PostgreSQL version number
-echo -n "Postgres Version: "
-msg "${GREEN}${PG_VERSION_STR}${NOFORMAT}"
-
+# Display user permissions
 echo -n "User permissions: "
 if [ "$HAVE_SUDO" = true ] ; then
   msg "${GREEN}root${NOFORMAT}"
@@ -691,28 +637,8 @@ else
   msg "${YELLOW}unprivileged${NOFORMAT}"
 fi
 
-# Display latest Postgres server PID
-echo -n "Postgres Server PID (Latest): "
-msg "${GREEN}${PG_PID}${NOFORMAT}"
-
-# Display Postgres server configuration file
-echo -n "Postgres Server Configuration File: "
-msg "${CYAN}${PG_CONFIG}${NOFORMAT}"
-
-# Display Postgres client configuration file
-echo -n "Postgres Client Configuration File: "
-msg "${CYAN}${PG_HBA_CONFIG}${NOFORMAT}"
-
-# Display base working directory
-echo -n "Base working directory: "
-msg "${CYAN}${BASEDIR}${NOFORMAT}"
-
-# Create the working directory
-echo -n "Temporary working directory: "
-msg "${CYAN}${PTDEST}${NOFORMAT}"
-
 # Display temporary directory
-echo -n "Creating temporary directory: "
+echo -n "Creating temporary directory (${PTDEST}): "
 mkdir -p ${PTDEST}
 if [ $? -eq 0 ]; then
   msg "${GREEN}done${NOFORMAT}"
@@ -725,6 +651,9 @@ fi
 if [ "$SKIP_OS" = false ]; then
   echo
   os_metrics
+  if [ "$PT_EXISTS" = false ]; then
+    legacy_os_metrics
+  fi
 fi
 
 # Collect Postgres metrics
@@ -732,6 +661,9 @@ if [ "$SKIP_POSTGRES" = false ]; then
   echo
   postgres_metrics
 fi
+
+# Wait for forked processes to complete
+waitPids
 
 echo
 heading "Preparing Data Archive"
