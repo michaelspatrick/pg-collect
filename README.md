@@ -24,7 +24,6 @@ Available options:
 -h, --help        Print this help and exit
 -v, --verbose     Print script debug info
 -V, --version     Print script version info
--f, --fast        Shorten the collection time of OS commands which take 60+ seconds to 3 seconds
 --no-color        Do not display colors
 --skip-downloads  Do not attempt to download any Percona tools
 --skip-os         Do not attempt to collect OS metrics
@@ -38,141 +37,161 @@ Available options:
 
 ## Sample Output (Fast collection with no color)
 ```
-mpatrick@localhost:~/postgres$ ./pg-collect.sh --fast  --no-color
+mpatrick@localhost:~/postgres$ ./pg-collect.sh
 Notes
 PostgreSQL Data Collection Version: 0.1
-Metrics collection speed: fast (3 sec)
-Percona Toolkit Version: 3.5
-Attempt download of Percona Toolkit (if needed): yes
-Postgres Version: PostgreSQL 15.2 - Percona Distribution
 User permissions: unprivileged
-Postgres Server PID (Latest): 906
-Postgres Server Configuration File: /etc/postgresql/15/main/postgresql.conf
-Postgres Client Configuration File: /etc/postgresql/15/main/pg_hba.conf
-Base working directory: /tmp/metrics
-Temporary working directory: /tmp/metrics/localhost_2023-05-31_13-25-44
-Creating temporary directory: done
+Creating temporary directory (/tmp/metrics/localhost_2023-06-02_15-17-12): done
 
 Operating System
-Collecting pt-summary: done
-Collecting sysctl: done
-Collecting ps: done
-Collecting top: done
 Collecting uname: done
 Collecting dmesg: skipped (insufficient user privileges)
-
-Logging
 Collecting /var/log/syslog (up to 1000 lines): done
 Collecting journalctl: done
-
-Resource Limits
-Collecting ulimit: done
-
-Swapping
-Collecting swappiness: done
-
-NUMA
-Collecting numactl: done
-
-CPU
-Collecting cpuinfo: done
-Collecting mpstat (3 sec): done
-
-Memory
-Collecting meminfo: done
-Collecting free/used memory: done
-Collecting vmstat (3 sec): done
-
-Storage
-Collecting df: done
-Collecting lsblk: done
-Collecting lsblk (all): done
-Collecting smartctl: skipped (insufficient user privileges)
-Collecting multipath: skipped (insufficient user privileges)
-Collecting lvdisplay: skipped (insufficient user privileges)
-Collecting pvdisplay: skipped (insufficient user privileges)
-Collecting pvs: skipped (insufficient user privileges)
-Collecting vgdisplay: skipped (insufficient user privileges)
-Collecting nfsstat: done
-
-I/O
-Collecting iostat (3 sec): done
-Collecting nfsiostat (3 sec): done
-
-Networking
-Collecting netstat: done
-Collecting sar (3 sec): done
+Percona Toolkit Version: 3.5
+Starting pt-summary process with PID: 178582
+Starting pt-stalk process with PID: 178583
 
 PostgreSQL
+Postgres Version: PostgreSQL 15.2 - Percona Distribution
 Copying server configuration file: done
 Copying client configuration file: skipped - insufficient read privileges
 Collecting PIDs: done
-Copying limits: done
-Collecting pt-pg-summary:
-INFO[0000] Connecting to the database server using: user=postgres password=****** sslmode=disable dbname=postgres
-INFO[0000] Connection OK
-INFO[0000] Detected PostgreSQL version: 15.0.2
-INFO[0000] Getting global information
-INFO[0000] Collecting global counters (1st pass)
-INFO[0000] Collecting Cluster information
-INFO[0000] Waiting 10 seconds to read  counters
-INFO[0000] Collecting Connected Clients information
-INFO[0000] Collecting Database Wait Events information
-INFO[0000] Collecting Global Wait Events information
-INFO[0000] Collecting Port and Data Dir information
-INFO[0000] Collecting Tablespaces information
-INFO[0000] Collecting Instance Settings information
-INFO[0000] Collecting Slave Hosts (PostgreSQL 10+)
-INFO[0000] Waiting for counters information
-INFO[0010] Collecting global counters (2nd pass)
-INFO[0010] Collecting processes command line information
-INFO[0010] Finished collecting global information
-INFO[0010] Collecting per database information
-INFO[0010] Connecting to the "postgres" database
-INFO[0010] Collecting Table Access information
-INFO[0010] Collecting Table Cache Hit Ratio information
-INFO[0010] Collecting Index Cache Hit Ratio information
-INFO[0010] Connecting to the "pq" database
-INFO[0010] Collecting Table Access information
-INFO[0010] Collecting Table Cache Hit Ratio information
-INFO[0010] Collecting Index Cache Hit Ratio information
-done
-Downloading 'gather.sql': done
-Executing 'gather.sql' (20+ sec): done
+Checking for 'gather.sql': found
+Starting pgGather process with PID: 178791
+2023_06_02_15_17_14 Starting /usr/bin/pt-stalk --function=status --variable=Threads_running --threshold=25 --match= --cycles=0 --interval=1 --iterations=4 --run-time=30 --sleep=30 --dest=/tmp/metrics/localhost_2023-06-02_15-17-12 --prefix= --notify-by-email= --log=/var/log/pt-stalk.log --pid=/var/run/pt-stalk.pid --plugin=
+2023_06_02_15_17_14 Not running with root privileges!
+2023_06_02_15_17_14 Not stalking; collect triggered immediately
+2023_06_02_15_17_14 Collect 1 triggered
+2023_06_02_15_17_14 SYSTEM_ONLY: yes
+2023_06_02_15_17_14 Collect 1 PID 179214
+2023_06_02_15_17_14 Collect 1 done
+2023_06_02_15_17_15 Sleeping 30 seconds after collect
+2023_06_02_15_17_20 Process, pt-summary, completed.
+2023_06_02_15_17_37 Process, pgGather, completed.
+2023_06_02_15_17_45 Not stalking; collect triggered immediately
+2023_06_02_15_17_45 Collect 2 triggered
+2023_06_02_15_17_45 SYSTEM_ONLY: yes
+2023_06_02_15_17_45 Collect 2 PID 180722
+2023_06_02_15_17_45 Collect 2 done
+2023_06_02_15_17_45 Sleeping 30 seconds after collect
+2023_06_02_15_18_15 Not stalking; collect triggered immediately
+2023_06_02_15_18_15 Collect 3 triggered
+2023_06_02_15_18_15 SYSTEM_ONLY: yes
+2023_06_02_15_18_15 Collect 3 PID 182093
+2023_06_02_15_18_15 Collect 3 done
+2023_06_02_15_18_15 Sleeping 30 seconds after collect
+2023_06_02_15_18_46 Not stalking; collect triggered immediately
+2023_06_02_15_18_46 Collect 4 triggered
+2023_06_02_15_18_46 SYSTEM_ONLY: yes
+2023_06_02_15_18_46 Collect 4 PID 183537
+2023_06_02_15_18_46 Collect 4 done
+2023_06_02_15_18_46 Waiting up to 90 seconds for subprocesses to finish...
+2023_06_02_15_19_47 Exiting because no more iterations
+2023_06_02_15_19_47 /usr/bin/pt-stalk exit status 0
+2023_06_02_15_19_48 Process, pt-stalk, completed.
+Done!
 
 Preparing Data Archive
 Compressing files:
-localhost_2023-05-31_13-25-44/
-localhost_2023-05-31_13-25-44/postgres_PIDs.txt
-localhost_2023-05-31_13-25-44/uname_a.txt
-localhost_2023-05-31_13-25-44/netstat_s.txt
-localhost_2023-05-31_13-25-44/iostat.txt
-localhost_2023-05-31_13-25-44/mpstat.txt
-localhost_2023-05-31_13-25-44/proc_906_limits.txt
-localhost_2023-05-31_13-25-44/ps_auxf.txt
-localhost_2023-05-31_13-25-44/numactl-hardware.txt
-localhost_2023-05-31_13-25-44/cpuinfo.txt
-localhost_2023-05-31_13-25-44/syslog
-localhost_2023-05-31_13-25-44/gather.sql
-localhost_2023-05-31_13-25-44/pt-summary.txt
-localhost_2023-05-31_13-25-44/top.txt
-localhost_2023-05-31_13-25-44/postgresql.conf
-localhost_2023-05-31_13-25-44/sysctl_a.txt
-localhost_2023-05-31_13-25-44/sar_dev.txt
-localhost_2023-05-31_13-25-44/free_m.txt
-localhost_2023-05-31_13-25-44/nfsstat_m.txt
-localhost_2023-05-31_13-25-44/vmstat.txt
-localhost_2023-05-31_13-25-44/lsblk.txt
-localhost_2023-05-31_13-25-44/df_k.txt
-localhost_2023-05-31_13-25-44/swappiness.txt
-localhost_2023-05-31_13-25-44/pt-pg-summary.txt
-localhost_2023-05-31_13-25-44/nfsiostat.txt
-localhost_2023-05-31_13-25-44/lsblk-all.txt
-localhost_2023-05-31_13-25-44/psql_gather.txt
-localhost_2023-05-31_13-25-44/ulimit_a.txt
-localhost_2023-05-31_13-25-44/journalctl.txt
-localhost_2023-05-31_13-25-44/meminfo.txt
-File saved to: /tmp/metrics/localhost_2023-05-31_13-25-44.tar.gz
+localhost_2023-06-02_15-17-12/
+localhost_2023-06-02_15-17-12/postgres_PIDs.txt
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-top
+localhost_2023-06-02_15-17-12/uname_a.txt
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-netstat_s
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-df
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-output
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-diskstats
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-hostname
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-top
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-mpstat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-iostat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-numastat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-df
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-numastat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-vmstat-overall
+localhost_2023-06-02_15-17-12/pgGather.txt
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-netstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-vmstat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-vmstat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-procvmstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-hostname
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-ps
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-disk-space
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-meminfo
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-iostat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-vmstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-procstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-trigger
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-netstat_s
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-trigger
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-iostat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-iostat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-sysctl
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-procvmstat
+localhost_2023-06-02_15-17-12/syslog
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-procstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-diskstats
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-disk-space
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-vmstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-netstat
+localhost_2023-06-02_15-17-12/gather.sql
+localhost_2023-06-02_15-17-12/pt-summary.txt
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-numastat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-vmstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-netstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-diskstats
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-interrupts
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-trigger
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-disk-space
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-ps
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-mpstat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-hostname
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-numastat
+localhost_2023-06-02_15-17-12/postgresql.conf
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-sysctl
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-iostat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-procstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-mpstat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-interrupts
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-diskstats
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-hostname
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-vmstat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-meminfo
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-trigger
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-ps
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-meminfo
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-sysctl
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-output
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-top
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-procvmstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-mpstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-df
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-ps
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-output
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-interrupts
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-netstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-top
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-disk-space
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-netstat_s
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-mpstat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-mpstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-iostat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-interrupts
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-iostat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-sysctl
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-procstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-vmstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-netstat_s
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_15-mpstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-mpstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-procvmstat
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-df
+localhost_2023-06-02_15-17-12/journalctl.txt
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_14-iostat-overall
+localhost_2023-06-02_15-17-12/2023_06_02_15_18_46-output
+localhost_2023-06-02_15-17-12/2023_06_02_15_17_45-meminfo
+File saved to: /tmp/metrics/localhost_2023-06-02_15-17-12.tar.gz
 
 Cleanup
 Deleting temporary files: done
