@@ -231,7 +231,7 @@ os_metrics() {
       ($PT_SUMMARY > ${PTDEST}/pt-summary.txt) &
       addPid "pt-summary" $!
     fi
-    (pt-stalk --system-only --no-stalk --iterations=1 --sleep=30 --dest ${PTDEST}) &
+    (pt-stalk --system-only --no-stalk --iterations=4 --sleep=30 --dest ${PTDEST}) &
     addPid "pt-stalk" $!
   else
     msg "${RED}Warning: Please install the Percona Toolkit.${NOFORMAT}"
