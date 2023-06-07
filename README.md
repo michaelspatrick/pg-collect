@@ -34,7 +34,7 @@ Available options:
 * Collecting metrics to send to a DBA or engineer to review during an issue.
 * Collecting metrics to store as a baseline of server performance.  If and when a problem arises, these metrics could be compared against the current state.
 
-## Sample Output (Fast collection with no color)
+## Sample Output
 ```
 mpatrick@localhost:~/postgres$ ./pg-collect.sh
 Collecting Metrics
