@@ -40,8 +40,7 @@ BASEDIR=${TMPDIR}/metrics
 # Postgres connectivity
 PG_USER="postgres"
 PG_PASSWORD="password"
-PG_DBNAME="postgres"
-PSQL_CONNECT_STR="psql -U${PG_USER} -d ${PG_DBNAME}"
+PG_PORT=5432
 
 # Number of log entries to collect from messages or syslog
 NUM_LOG_LINES=1000
@@ -146,8 +145,6 @@ addPid() {
 }
 
 os_metrics() {
-  heading "Operating System"
-
   # Collect OS information
   echo -n "Collecting uname: "
   uname -a > ${PTDEST}/uname_a.txt
@@ -194,10 +191,10 @@ os_metrics() {
       chmod +x ${PT_SUMMARY}
       PT_VERSION_NUM=`${PT_SUMMARY} --version | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
     else
-      msg "${RED}Warning: Percona Toolkit tool, pt-summary, not found.${NOFORMAT}"
-      echo -n "Attempting to download it: "
+      msg "${RED}Warning: Percona Toolkit not found.${NOFORMAT}"
+      echo -n "Attempting to download the tools: "
       if [ "${SKIP_DOWNLOADS}" = false ]; then
-        wget -cq -T 5 -P ${TMPDIR} percona.com/get/pt-summary
+        curl -sL https://percona.com/get/pt-summary --output ${TMPDIR}/pt-summary
         if [ $? -eq 0 ]; then
           PT_EXISTS=true
           PT_SUMMARY="${TMPDIR}/pt-summary"
@@ -211,6 +208,24 @@ os_metrics() {
         fi
       else
         msg "${YELLOW}skipped (per user request)${NOFORMAT}"
+      fi
+    fi
+  fi
+
+  # Check for pt-stalk and attempt download if not found
+  if exists pt-stalk; then
+    PT_STALK=`which pt-stalk`
+  else
+    if [ -f "${TMPDIR}/pt-stalk" ]; then
+      PT_STALK=${TMPDIR}/pt-stalk
+      chmod +x ${PT_STALK}
+    else
+      if [ "${SKIP_DOWNLOADS}" = false ]; then
+        curl -sL https://percona.com/get/pt-stalk --output ${TMPDIR}/pt-stalk
+        if [ $? -eq 0 ]; then
+          PT_STALK="${TMPDIR}/pt-stalk"
+          chmod +x ${PT_STALK}
+        fi
       fi
     fi
   fi
@@ -231,7 +246,7 @@ os_metrics() {
       ($PT_SUMMARY > ${PTDEST}/pt-summary.txt) &
       addPid "pt-summary" $!
     fi
-    (pt-stalk --system-only --no-stalk --iterations=4 --sleep=30 --dest ${PTDEST}) &
+    (pt-stalk --system-only --no-stalk --iterations=2 --sleep=30 --log=${PTDEST}/pt-stalk.log --dest ${PTDEST}) &
     addPid "pt-stalk" $!
   else
     msg "${RED}Warning: Please install the Percona Toolkit.${NOFORMAT}"
@@ -453,8 +468,6 @@ legacy_os_metrics() {
 }
 
 postgres_metrics() {
-  heading "PostgreSQL"
-
   # Get the Postgres version number
   if exists pg_config; then
     PG_VERSION_STR=`pg_config --version`
@@ -464,6 +477,18 @@ postgres_metrics() {
     PG_VERSION_NUM=`psql -V | egrep -o '[0-9]{1,}\.[0-9]{1,}'`
   else
     PSQL_EXISTS=false
+    die "Error: Cannot connect to PostgreSQL!"
+  fi
+
+  if exists pg_isready; then
+    echo -n "Testing connection to PostgreSQL: "
+    pg_isready >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+      msg "${GREEN}success${NOFORMAT}"
+    else
+      msg "${RED}Cannot connect to database!${NOFORMAT}"
+      die
+    fi
   fi
 
   # Get the location of the PG config file
@@ -551,11 +576,6 @@ postgres_metrics() {
     if [ -f "$TMPDIR/$SQLFILE" ]; then
       (${PSQL_CONNECT_STR} -X -f ${TMPDIR}/${SQLFILE} > ${PTDEST}/pgGather.txt) &
       addPid "pgGather" $!
-      #if [ $? -eq 0 ]; then
-      #  msg "${GREEN}done${NOFORMAT}"
-      #else
-      #  msg "${RED}failed${NOFORMAT}"
-      #fi
     else
       msg "${RED}failed${NOFORMAT}"
     fi
@@ -565,18 +585,19 @@ postgres_metrics() {
 # Display script usage
 usage() {
   cat << EOF # remove the space between << and EOF
-Usage: $(basename "${BASH_SOURCE[0]}") [-h] [-v] [-V] [-f] [--no-color] [--skip-downloads] [--skip-os] [--skip-postgres]
+Usage: $(basename "${BASH_SOURCE[0]}") [-p] [-U] [-v] [-V] [-W] [--help] [--no-color] [--skip-downloads]
 
 Script collects various Operating System and PostgreSQL diagnostic information and stores output in an archive file.
 
 Available options:
--h, --help        Print this help and exit
+--help        Print this help and exit
+-p, --port        database server port
+-U, --username    database user name
 -v, --verbose     Print script debug info
 -V, --version     Print script version info
+-W, --password    database password
 --no-color        Do not display colors
 --skip-downloads  Do not attempt to download any Percona tools
---skip-os         Do not attempt to collect OS metrics
---skip-postgres   Do not attempt to collect PostgreSQL metrics
 EOF
   exit
 }
@@ -586,18 +607,17 @@ parse_params() {
   # default values of variables set from params
   COLOR=true             # Whether or not to show colored output
   SKIP_DOWNLOADS=false   # Whether to skip attempts to download Percona toolkit and scripts
-  SKIP_OS=false          # Whether to skip collecting OS metrics
-  SKIP_POSTGRES=false    # Whether to skip collecting PostgreSQL metrics
 
   while :; do
     case "${1-}" in
-    -h | --help) usage ;;
+    --help) usage ;;
+    -p | --port) PG_PORT="${2-}"; shift ;;
+    -U | --username) PG_USER="${2-}"; shift ;;
+    -W | --password) PG_PASSWORD="${2-}"; shift ;;
     -v | --verbose) set -x ;;
     -V | --version) version ;;
     --no-color) COLOR=false ;;
     --skip-downloads) SKIP_DOWNLOADS=true ;;
-    --skip-os) SKIP_OS=true ;;
-    --skip-postgres) SKIP_POSTGRES=true ;;
     -?*) die "Unknown option: $1" ;;
     *) break; die ;;
     esac
@@ -605,6 +625,9 @@ parse_params() {
   done
 
   args=("$@")
+
+  PSQL_CONNECT_STR="psql -U${PG_USER} -p${PG_PORT}"
+  export PGPASSWORD="${PG_PASSWORD}"
 
   return 0
 }
@@ -623,7 +646,7 @@ else
   HAVE_SUDO=true
 fi
 
-heading "Notes"
+heading "Collecting Metrics"
 
 # Display script version
 echo -n "PostgreSQL Data Collection Version: "
@@ -647,19 +670,13 @@ else
   exit 1
 fi
 
-# Collect the OS metrics
-if [ "$SKIP_OS" = false ]; then
-  echo
-  os_metrics
-  if [ "$PT_EXISTS" = false ]; then
-    legacy_os_metrics
-  fi
-fi
-
 # Collect Postgres metrics
-if [ "$SKIP_POSTGRES" = false ]; then
-  echo
-  postgres_metrics
+postgres_metrics
+
+# Collect the OS metrics
+os_metrics
+if [ "$PT_EXISTS" = false ]; then
+  legacy_os_metrics
 fi
 
 # Wait for forked processes to complete
