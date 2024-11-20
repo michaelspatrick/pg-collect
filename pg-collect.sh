@@ -198,10 +198,25 @@ os_metrics() {
   fi
 
   # Collect top
-  echo -n "Collecting top: "
-  top -b -c -n 24 -d 5 > ${PTDEST}/top.txt &
-  addPid "top" $!
+  echo -n "Collecting top (background): "
+  if exists top; then
+    top -b -c -n 24 -d 5 > ${PTDEST}/top.txt &
+    addPid "top" $!
+  else
+    msg "${YELLOW}skipped${NOFORMAT}"
+  fi
 
+  # Collect pidstat
+  echo -n "Collecting pidstat (background): "
+  if exists pidstat; then
+    pidstat 1 60 > ${PTDEST}/pidstat.txt &
+    addPid "pidstat" $!
+    pidstat -d 1 60 > ${PTDEST}/pidstat_d.txt &
+    addPid "pidstat_d" $!
+  else
+    msg "${YELLOW}skipped${NOFORMAT}"
+  fi  
+  
   # mpstat
   echo -n "Collecting mpstat (60 sec): "
   if exists mpstat; then
@@ -214,8 +229,8 @@ os_metrics() {
   # vmstat
   echo -n "Collecting vmstat (60 sec): "
   if exists vmstat; then
-    vmstat 1 60 > ${PTDEST}/vmstat.txt
-    msg "${GREEN}done${NOFORMAT}"
+    vmstat 1 60 > ${PTDEST}/vmstat.txt &
+    addPid "vmstat" $!
   else
     msg "${YELLOW}skipped${NOFORMAT}"
   fi
@@ -223,7 +238,7 @@ os_metrics() {
   # Disk info
   echo -n "Collecting df: "
   if exists df; then
-    df -h > ${PTDEST}/df_k.txt
+    df -h > ${PTDEST}/df.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
@@ -241,7 +256,25 @@ os_metrics() {
   # iostat
   echo -n "Collecting iostat (60 sec): "
   if exists iostat; then
-    iostat -dx 1 60 > ${PTDEST}/iostat.txt
+    iostat -dx 1 60 > ${PTDEST}/iostat.txt &
+    addPid "iostat" $!
+  else
+    msg "${YELLOW}skipped${NOFORMAT}"
+  fi
+
+  # sysctl
+  echo -n "Collecting sysctl: "
+  if exists sysctl; then
+    sysctl -a > ${PTDEST}/sysctl.txt
+    msg "${GREEN}done${NOFORMAT}"
+  else
+    msg "${YELLOW}skipped${NOFORMAT}"
+  fi
+
+  # mount
+  echo -n "Collecting mount: "
+  if exists mount; then
+    mount > ${PTDEST}/mount.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
