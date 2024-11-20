@@ -29,7 +29,7 @@
 # Use at your own risk!
 #
 
-VERSION=0.1
+VERSION=0.2
 
 # ------------------------- Begin Configuation -------------------------
 
@@ -145,11 +145,6 @@ addPid() {
 }
 
 os_metrics() {
-  # Collect OS information
-  echo -n "Collecting uname: "
-  uname -a > ${PTDEST}/uname_a.txt
-  msg "${GREEN}done${NOFORMAT}"
-
   # Collect kernel information
   echo -n "Collecting dmesg: "
   if [ "$HAVE_SUDO" = true ] ; then
@@ -159,26 +154,6 @@ os_metrics() {
   else
     msg "${YELLOW}skipped (insufficient user privileges)${NOFORMAT}"
   fi
-
-  # Copy messages (if exists)
-  if [ -e /var/log/messages ]; then
-    echo -n "Collecting /var/log/messages (up to ${NUM_LOG_LINES} lines): "
-    tail -n ${NUM_LOG_LINES} /var/log/messages > ${PTDEST}/messages
-    msg "${GREEN}done${NOFORMAT}"
-  fi
-
-  # Copy syslog (if exists)
-  if [ -e /var/log/syslog ]; then
-    echo -n "Collecting /var/log/syslog (up to ${NUM_LOG_LINES} lines): "
-    tail -n ${NUM_LOG_LINES} /var/log/syslog > ${PTDEST}/syslog
-    msg "${GREEN}done${NOFORMAT}"
-  fi
-
-  # Copy the journalctl output
-  echo -n "Collecting journalctl: "
-  journalctl -e > ${PTDEST}/journalctl.txt
-  msg "${GREEN}done${NOFORMAT}"
-
   # Get the Percona Toolkit version via pt-summary
   if exists pt-summary; then
     PT_EXISTS=true
@@ -212,32 +187,6 @@ os_metrics() {
     fi
   fi
 
-  # Check for pt-stalk and attempt download if not found
-  if exists pt-stalk; then
-    PT_STALK=`which pt-stalk`
-  else
-    if [ -f "${TMPDIR}/pt-stalk" ]; then
-      PT_STALK=${TMPDIR}/pt-stalk
-      chmod +x ${PT_STALK}
-    else
-      if [ "${SKIP_DOWNLOADS}" = false ]; then
-        curl -sL https://percona.com/get/pt-stalk --output ${TMPDIR}/pt-stalk
-        if [ $? -eq 0 ]; then
-          PT_STALK="${TMPDIR}/pt-stalk"
-          chmod +x ${PT_STALK}
-        fi
-      fi
-    fi
-  fi
-
-  # Display the Percona Toolkit version number
-  echo -n "Percona Toolkit Version: "
-  if [ "$PT_EXISTS" = true ]; then
-    msg "${GREEN}${PT_VERSION_NUM}${NOFORMAT}"
-  else
-    msg "${YELLOW}not found${NOFORMAT}"
-  fi
-
   if [ "$PT_EXISTS" = true ]; then
     # Collect summary info using Percona Toolkit (if available)
     if ! exists $PT_SUMMARY; then
@@ -246,66 +195,23 @@ os_metrics() {
       ($PT_SUMMARY > ${PTDEST}/pt-summary.txt) &
       addPid "pt-summary" $!
     fi
-    (pt-stalk --system-only --no-stalk --iterations=2 --sleep=30 --log=${PTDEST}/pt-stalk.log --dest ${PTDEST}) &
-    addPid "pt-stalk" $!
   else
     msg "${RED}Warning: Please install the Percona Toolkit.${NOFORMAT}"
   fi
-}
-
-legacy_os_metrics() {
-  # Collect ps
-  echo -n "Collecting ps: "
-  ps auxf > ${PTDEST}/ps_auxf.txt
-  msg "${GREEN}done${NOFORMAT}"
 
   # Collect top
   echo -n "Collecting top: "
-  top -bn 1 > ${PTDEST}/top.txt
-  msg "${GREEN}done${NOFORMAT}"
-
-  # Ulimit
-  echo -n "Collecting ulimit: "
-  ulimit -a > ${PTDEST}/ulimit_a.txt
-  msg "${GREEN}done${NOFORMAT}"
-
-  # Swappiness
-  echo -n "Collecting swappiness: "
-  cat /proc/sys/vm/swappiness > ${PTDEST}/swappiness.txt
-  msg "${GREEN}done${NOFORMAT}"
-
-  # Numactl
-  echo -n "Collecting numactl: "
-  if exists numactl; then
-    numactl --hardware > ${PTDEST}/numactl-hardware.txt
-    msg "${GREEN}done${NOFORMAT}"
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # cpuinfo
-  echo -n "Collecting cpuinfo: "
-  cat /proc/cpuinfo > ${PTDEST}/cpuinfo.txt
-  msg "${GREEN}done${NOFORMAT}"
+  top -b -c -n 24 -d 5 > ${PTDEST}/top.txt &
+  addPid "top" $!
 
   # mpstat
   echo -n "Collecting mpstat (60 sec): "
   if exists mpstat; then
-    mpstat -A 1 60 > ${PTDEST}/mpstat.txt
-    msg "${GREEN}done${NOFORMAT}"
+    mpstat -u -P ALL 1 60 > ${PTDEST}/mpstat.txt &
+    addPid "mpstat" $!
   else
     msg "${YELLOW}skipped${NOFORMAT}"
   fi
-
-  # meminfo
-  echo -n "Collecting meminfo: "
-  cat /proc/meminfo > ${PTDEST}/meminfo.txt
-  msg "${GREEN}done${NOFORMAT}"
-
-  # Memory
-  echo -n "Collecting free/used memory: "
-  free -m > ${PTDEST}/free_m.txt
-  msg "${GREEN}done${NOFORMAT}"
 
   # vmstat
   echo -n "Collecting vmstat (60 sec): "
@@ -319,16 +225,7 @@ legacy_os_metrics() {
   # Disk info
   echo -n "Collecting df: "
   if exists df; then
-    df -k > ${PTDEST}/df_k.txt
-    msg "${GREEN}done${NOFORMAT}"
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # Block devices
-  echo -n "Collecting lsblk: "
-  if exists lsblk; then
-    lsblk -o KNAME,SCHED,SIZE,TYPE,ROTA > ${PTDEST}/lsblk.txt
+    df -h > ${PTDEST}/df_k.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
@@ -337,94 +234,7 @@ legacy_os_metrics() {
   # lsblk
   echo -n "Collecting lsblk (all): "
   if exists lsblk; then
-    lsblk --all > ${PTDEST}/lsblk-all.txt
-    msg "${GREEN}done${NOFORMAT}"
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # smartctl
-  echo -n "Collecting smartctl: "
-  if exists smartctl; then
-    if [ "$HAVE_SUDO" = true ] ; then
-      smartctl --scan | awk '{print $1}' | while read device; do { smartctl --xall "${device}"; } done > "${PTDEST}/smartctl.txt"
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${YELLOW}skipped (insufficient user privileges)${NOFORMAT}"
-    fi
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # multipath (if root)
-  echo -n "Collecting multipath: "
-  if exists multipath; then
-    if [ "$HAVE_SUDO" = true ] ; then
-      multipath -ll > "${PTDEST}/multipath_ll.txt"
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${YELLOW}skipped (insufficient user privileges)${NOFORMAT}"
-    fi
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # lvdisplay (only for systems with LVM)
-  echo -n "Collecting lvdisplay: "
-  if exists lvdisplay; then
-    if [ "$HAVE_SUDO" = true ] ; then
-      sudo lvdisplay --all --maps > ${PTDEST}/lvdisplay-all-maps.txt
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${YELLOW}skipped (insufficient user privileges)${NOFORMAT}"
-    fi
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # pvdisplay (only for systems with LVM)
-  echo -n "Collecting pvdisplay: "
-  if exists pvdisplay; then
-    if [ "$HAVE_SUDO" = true ] ; then
-      sudo pvdisplay --maps > ${PTDEST}/pvdisplay-maps.txt
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${YELLOW}skipped (insufficient user privileges)${NOFORMAT}"
-    fi
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # pvs (only for systems with LVM)
-  echo -n "Collecting pvs: "
-  if exists pvs; then
-    if [ "$HAVE_SUDO" = true ] ; then
-      sudo pvs -v > ${PTDEST}/pvs_v.txt
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${YELLOW}skipped (insufficient user privileges)${NOFORMAT}"
-    fi
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # vgdisplay (only for systems with LVM)
-  echo -n "Collecting vgdisplay: "
-  if exists vgdisplay; then
-    if [ "$HAVE_SUDO" = true ] ; then
-      sudo vgdisplay > ${PTDEST}/vgdisplay.txt
-      msg "${GREEN}done${NOFORMAT}"
-    else
-      msg "${YELLOW}skipped (insufficient user privileges)${NOFORMAT}"
-    fi
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # nfsstat for systems with NFS mounts
-  echo -n "Collecting nfsstat: "
-  if exists nfsstat; then
-    nfsstat -m > ${PTDEST}/nfsstat_m.txt
+    lsblk --ascii > ${PTDEST}/lsblk.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
@@ -433,34 +243,7 @@ legacy_os_metrics() {
   # iostat
   echo -n "Collecting iostat (60 sec): "
   if exists iostat; then
-    iostat -dmx 1 60 > ${PTDEST}/iostat.txt
-    msg "${GREEN}done${NOFORMAT}"
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # nfsiostat
-  echo -n "Collecting nfsiostat (60 sec): "
-  if exists nfsiostat; then
-    nfsiostat 1 60 > ${PTDEST}/nfsiostat.txt
-    msg "${GREEN}done${NOFORMAT}"
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # netstat
-  echo -n "Collecting netstat: "
-  if exists netstat; then
-    netstat -s > ${PTDEST}/netstat_s.txt
-    msg "${GREEN}done${NOFORMAT}"
-  else
-    msg "${YELLOW}skipped${NOFORMAT}"
-  fi
-
-  # sar
-  echo -n "Collecting sar (60 sec): "
-  if exists sar; then
-    sar -n DEV 1 60 > ${PTDEST}/sar_dev.txt
+    iostat -dx 1 60 > ${PTDEST}/iostat.txt
     msg "${GREEN}done${NOFORMAT}"
   else
     msg "${YELLOW}skipped${NOFORMAT}"
