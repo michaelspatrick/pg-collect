@@ -7,6 +7,7 @@
 #
 # Written by Michael Patrick (michael.patrick@percona.com)
 # Version 0.1 - May 18, 2023
+# Version 0.2 - November 11, 2024
 #
 # It is recommended to run the script as a privileged user (superuser,
 # rds_superuser, etc), but it will run as any user.  You can safely ignore any
@@ -17,11 +18,8 @@
 # website.  If that too fails, it will continue gracefully, but some key metrics
 # will be missing.  This can also be skipped by the --skip-downloads flag.
 #
-# This script also gathers either /var/log/syslog or /var/log/messages.
-# It will collect the last 1,000 lines from the log by default.
-#
-# The pt-stalk, pt-summary, and pgGather utilities will be run multi-threaded
-# to collect the best metrics.
+# The pt-summary and pgGather utilities will be run multi-threaded to collect
+# the best metrics.
 #
 # Modify the Postgres connectivity section below and then you should be able
 # to run the script.
@@ -458,9 +456,6 @@ postgres_metrics
 
 # Collect the OS metrics
 os_metrics
-if [ "$PT_EXISTS" = false ]; then
-  legacy_os_metrics
-fi
 
 # Wait for forked processes to complete
 waitPids
